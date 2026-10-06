@@ -2,12 +2,15 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IItinerary extends Document {
   userId: string;
-  name: string;
-  title?: string;
-  destinationName?: string;
-  description?: string;
+  title: string;
+  name?: string;
+  destinationId?: string;
+  destinationName: string;
   startDate?: Date;
   endDate?: Date;
+  travelers?: number;
+  notes?: string;
+  description?: string;
   items?: any[];
   status: 'draft' | 'active' | 'completed' | 'cancelled';
   createdAt: Date;
@@ -17,17 +20,20 @@ export interface IItinerary extends Document {
 const ItinerarySchema: Schema = new Schema(
   {
     userId: { type: String, required: true, index: true },
-    name: { type: String, required: true, default: 'My Trip Itinerary' },
-    title: { type: String, default: 'My Trip Itinerary' },
-    destinationName: { type: String, default: 'Munnar' },
-    description: { type: String, default: '' },
+    title: { type: String, required: true, default: 'My Trip Itinerary' },
+    name: { type: String },
+    destinationId: { type: String, index: true },
+    destinationName: { type: String, required: true, default: 'India' },
     startDate: { type: Date, default: null },
     endDate: { type: Date, default: null },
+    travelers: { type: Number, default: 1 },
+    notes: { type: String, default: '' },
+    description: { type: String, default: '' },
     items: [{ type: Schema.Types.Mixed }],
     status: {
       type: String,
       enum: ['draft', 'active', 'completed', 'cancelled'],
-      default: 'draft',
+      default: 'active',
     },
   },
   { timestamps: true }

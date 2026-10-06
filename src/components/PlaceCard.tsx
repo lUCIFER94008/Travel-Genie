@@ -31,15 +31,48 @@ export default function PlaceCard({ place }: PlaceCardProps) {
 
   const rawPhoto = typeof place.primaryPhoto === 'object' ? place.primaryPhoto?.url : place.primaryPhoto;
 
-  const toggleFavorite = (e: React.MouseEvent) => {
+  React.useEffect(() => {
+    fetch('/api/favorites')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data) {
+          const match = data.data.some(
+            (fav: any) =>
+              fav.itemType === 'place' &&
+              (fav.itemId === place._id || fav.itemId === place.slug)
+          );
+          if (match) setIsFavorite(true);
+        }
+      })
+      .catch(() => {});
+  }, [place._id, place.slug]);
+
+  const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
-    fetch('/api/favorites', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetId: place._id || place.slug, type: 'place' }),
-    }).catch(() => {});
+
+    const targetId = place._id || place.slug;
+    const newFavState = !isFavorite;
+    setIsFavorite(newFavState);
+
+    try {
+      if (newFavState) {
+        const res = await fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemType: 'place', itemId: targetId }),
+        });
+        if (res.status === 401) {
+          window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+        }
+      } else {
+        await fetch(`/api/favorites?itemType=place&itemId=${targetId}`, {
+          method: 'DELETE',
+        });
+      }
+    } catch {
+      setIsFavorite(!newFavState);
+    }
   };
 
   return (

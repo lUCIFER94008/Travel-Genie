@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/db';
 import { Favorite } from '@/models/Favorite';
+import { Destination } from '@/models/Destination';
+import { Place } from '@/models/Place';
+import { Restaurant } from '@/models/Restaurant';
+import { Hotel } from '@/models/Hotel';
+import { Resort } from '@/models/Resort';
 import { getUserFromRequest } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
@@ -11,10 +16,47 @@ export async function GET(req: NextRequest) {
 
   try {
     await connectToDatabase();
-    const favorites = await Favorite.find({ userId: user.userId }).sort({ createdAt: -1 }).lean();
-    return NextResponse.json({ success: true, count: favorites.length, data: favorites, favorites });
+    const rawFavs = await Favorite.find({ userId: user.userId }).sort({ createdAt: -1 }).lean();
+
+    const populatedData = await Promise.all(
+      rawFavs.map(async (fav: any) => {
+        let itemDetail: any = null;
+        try {
+          const isMongoId = /^[0-9a-fA-F]{24}$/.test(fav.itemId);
+          const orConditions: any[] = [{ slug: String(fav.itemId).toLowerCase() }];
+          if (isMongoId) {
+            orConditions.push({ _id: fav.itemId });
+          }
+
+          if (fav.itemType === 'destination') {
+            itemDetail = await Destination.findOne({ $or: orConditions }).lean();
+          } else if (fav.itemType === 'place') {
+            itemDetail = await Place.findOne({ $or: orConditions }).lean();
+          } else if (fav.itemType === 'restaurant') {
+            itemDetail = await Restaurant.findOne({ $or: orConditions }).lean();
+          } else if (fav.itemType === 'hotel') {
+            itemDetail = await Hotel.findOne({ $or: orConditions }).lean();
+          } else if (fav.itemType === 'resort') {
+            itemDetail = await Resort.findOne({ $or: orConditions }).lean();
+          }
+        } catch (err) {
+          console.warn('Populate favorite detail error:', err);
+        }
+
+        return {
+          ...fav,
+          item: itemDetail ? JSON.parse(JSON.stringify(itemDetail)) : null,
+        };
+      })
+    );
+
+    return NextResponse.json({
+      success: true,
+      count: populatedData.length,
+      data: JSON.parse(JSON.stringify(populatedData)),
+    });
   } catch (err: any) {
-    return NextResponse.json({ success: true, count: 0, data: [], favorites: [] });
+    return NextResponse.json({ success: true, count: 0, data: [] });
   }
 }
 

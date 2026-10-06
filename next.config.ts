@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "cdn.pixabay.com" },
       { protocol: "https", hostname: "*.pixabay.com" },
       { protocol: "https", hostname: "*.gov.in" },
+      { protocol: "https", hostname: "upload.wikimedia.org" },
+      { protocol: "https", hostname: "commons.wikimedia.org" },
     ],
   },
 };

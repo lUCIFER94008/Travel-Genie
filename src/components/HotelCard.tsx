@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import TravelImage from '@/components/TravelImage';
-import { Star, MapPin, ExternalLink, Navigation, Building2, Calendar } from 'lucide-react';
+import { Star, MapPin, ExternalLink, Navigation, Building2, Calendar, Heart } from 'lucide-react';
 import { formatDistance } from '@/lib/geo';
 
 interface HotelCardProps {
@@ -29,9 +29,54 @@ interface HotelCardProps {
 }
 
 export default function HotelCard({ hotel, onOpenBooking }: HotelCardProps) {
+  const [isFavorite, setIsFavorite] = useState(false);
   const rawPhoto = typeof hotel.primaryPhoto === 'object' ? hotel.primaryPhoto?.url : hotel.primaryPhoto;
 
   const googleDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${hotel.location.coordinates[1]},${hotel.location.coordinates[0]}`;
+
+  useEffect(() => {
+    fetch('/api/favorites')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data) {
+          const match = data.data.some(
+            (fav: any) =>
+              (fav.itemType === 'hotel' || fav.itemType === 'resort') &&
+              (fav.itemId === hotel._id || fav.itemId === hotel.slug)
+          );
+          if (match) setIsFavorite(true);
+        }
+      })
+      .catch(() => {});
+  }, [hotel._id, hotel.slug]);
+
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const targetId = hotel._id || hotel.slug;
+    const newFavState = !isFavorite;
+    setIsFavorite(newFavState);
+
+    try {
+      if (newFavState) {
+        const res = await fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemType: 'hotel', itemId: targetId }),
+        });
+        if (res.status === 401) {
+          window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+        }
+      } else {
+        await fetch(`/api/favorites?itemType=hotel&itemId=${targetId}`, {
+          method: 'DELETE',
+        });
+      }
+    } catch {
+      setIsFavorite(!newFavState);
+    }
+  };
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col justify-between">
@@ -51,15 +96,22 @@ export default function HotelCard({ hotel, onOpenBooking }: HotelCardProps) {
             <span>{hotel.type || 'Resort'}</span>
           </div>
 
-          {hotel.rating && (
-            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md text-amber-700 text-xs font-bold flex items-center gap-1 shadow-xs">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>{hotel.rating.toFixed(1)}</span>
-              {hotel.ratingCount && (
-                <span className="text-gray-400 font-normal">({hotel.ratingCount})</span>
-              )}
-            </div>
-          )}
+          <div className="absolute top-3 right-3 flex items-center gap-2">
+            <button
+              onClick={toggleFavorite}
+              aria-label={`Favorite ${hotel.name}`}
+              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-gray-700 hover:text-red-500 hover:scale-110 transition-all shadow-xs"
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
+            </button>
+
+            {hotel.rating && (
+              <div className="px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md text-amber-700 text-xs font-bold flex items-center gap-1 shadow-xs">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span>{hotel.rating.toFixed(1)}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Info */}

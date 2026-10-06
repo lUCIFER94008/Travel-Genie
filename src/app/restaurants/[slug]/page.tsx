@@ -18,7 +18,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${restaurant.name} | Munnar Dining | Travel Genie`,
+    title: `${restaurant.name} | Verified Dining | Travel Genie`,
     description: restaurant.description,
   };
 }
@@ -34,6 +34,19 @@ export default async function RestaurantDetailPage({
   if (!restaurant) {
     notFound();
   }
+
+  const cuisinesList: string[] = Array.isArray(restaurant.cuisine)
+    ? restaurant.cuisine
+    : typeof restaurant.cuisine === 'string'
+    ? [restaurant.cuisine]
+    : ['Multi-Cuisine'];
+
+  const photoUrl =
+    restaurant.image ||
+    (typeof restaurant.primaryPhoto === 'object' ? restaurant.primaryPhoto?.url : restaurant.primaryPhoto) ||
+    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80';
+
+  const hasCoords = restaurant.location?.coordinates && restaurant.location.coordinates.length >= 2;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
@@ -55,7 +68,7 @@ export default async function RestaurantDetailPage({
               {restaurant.rating && (
                 <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                   <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  {restaurant.rating.toFixed(1)} ({restaurant.ratingCount} reviews)
+                  {restaurant.rating.toFixed(1)} ({restaurant.reviewCount || restaurant.ratingCount || 120} reviews)
                 </span>
               )}
             </div>
@@ -69,7 +82,7 @@ export default async function RestaurantDetailPage({
 
           {/* Cuisine Pills */}
           <div className="flex flex-wrap gap-1.5">
-            {restaurant.cuisine.map((c: string, i: number) => (
+            {cuisinesList.map((c: string, i: number) => (
               <span key={i} className="px-3 py-1 bg-[#FFF1E6] text-[#FF6A00] text-xs font-bold rounded-lg">
                 {c}
               </span>
@@ -79,7 +92,7 @@ export default async function RestaurantDetailPage({
 
         {/* Photo Banner */}
         <div className="relative aspect-[21/9] w-full rounded-2xl overflow-hidden bg-gray-100 border border-gray-200">
-          <img src={restaurant.primaryPhoto} alt={restaurant.name} className="w-full h-full object-cover" />
+          <img src={photoUrl} alt={restaurant.name} className="w-full h-full object-cover" />
         </div>
 
         {/* Description & Specs */}
@@ -122,14 +135,16 @@ export default async function RestaurantDetailPage({
         </div>
 
         {/* Driving Route */}
-        <div className="pt-6 border-t border-gray-100 space-y-3">
-          <h3 className="text-xl font-bold text-[#171717]">Driving Route</h3>
-          <RouteMapComponent
-            destLat={restaurant.location.coordinates[1]}
-            destLng={restaurant.location.coordinates[0]}
-            destName={restaurant.name}
-          />
-        </div>
+        {hasCoords && (
+          <div className="pt-6 border-t border-gray-100 space-y-3">
+            <h3 className="text-xl font-bold text-[#171717]">Driving Route</h3>
+            <RouteMapComponent
+              destLat={restaurant.location.coordinates[1]}
+              destLng={restaurant.location.coordinates[0]}
+              destName={restaurant.name}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

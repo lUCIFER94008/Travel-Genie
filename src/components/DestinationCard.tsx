@@ -24,15 +24,48 @@ export default function DestinationCard({ destination }: DestinationCardProps) {
 
   const rawImage = typeof destination.heroImage === 'object' ? destination.heroImage?.url : destination.heroImage;
 
-  const toggleFavorite = (e: React.MouseEvent) => {
+  React.useEffect(() => {
+    fetch('/api/favorites')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data) {
+          const match = data.data.some(
+            (fav: any) =>
+              fav.itemType === 'destination' &&
+              (fav.itemId === destination._id || fav.itemId === destination.slug)
+          );
+          if (match) setIsFavorite(true);
+        }
+      })
+      .catch(() => {});
+  }, [destination._id, destination.slug]);
+
+  const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
-    fetch('/api/favorites', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetId: destination._id || destination.slug, type: 'destination' }),
-    }).catch(() => {});
+
+    const targetId = destination._id || destination.slug;
+    const newFavState = !isFavorite;
+    setIsFavorite(newFavState);
+
+    try {
+      if (newFavState) {
+        const res = await fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemType: 'destination', itemId: targetId }),
+        });
+        if (res.status === 401) {
+          window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+        }
+      } else {
+        await fetch(`/api/favorites?itemType=destination&itemId=${targetId}`, {
+          method: 'DELETE',
+        });
+      }
+    } catch {
+      setIsFavorite(!newFavState);
+    }
   };
 
   return (

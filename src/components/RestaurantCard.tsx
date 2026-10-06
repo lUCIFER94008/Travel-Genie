@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import TravelImage from '@/components/TravelImage';
-import { Star, MapPin, Phone, ExternalLink, Navigation, Utensils } from 'lucide-react';
+import { Star, MapPin, Phone, ExternalLink, Navigation, Utensils, Heart } from 'lucide-react';
 import { formatDistance } from '@/lib/geo';
 
 interface RestaurantCardProps {
@@ -28,9 +28,54 @@ interface RestaurantCardProps {
 }
 
 export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
+  const [isFavorite, setIsFavorite] = useState(false);
   const rawPhoto = typeof restaurant.primaryPhoto === 'object' ? restaurant.primaryPhoto?.url : restaurant.primaryPhoto;
 
   const googleDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.location.coordinates[1]},${restaurant.location.coordinates[0]}`;
+
+  useEffect(() => {
+    fetch('/api/favorites')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data) {
+          const match = data.data.some(
+            (fav: any) =>
+              fav.itemType === 'restaurant' &&
+              (fav.itemId === restaurant._id || fav.itemId === restaurant.slug)
+          );
+          if (match) setIsFavorite(true);
+        }
+      })
+      .catch(() => {});
+  }, [restaurant._id, restaurant.slug]);
+
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const targetId = restaurant._id || restaurant.slug;
+    const newFavState = !isFavorite;
+    setIsFavorite(newFavState);
+
+    try {
+      if (newFavState) {
+        const res = await fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemType: 'restaurant', itemId: targetId }),
+        });
+        if (res.status === 401) {
+          window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+        }
+      } else {
+        await fetch(`/api/favorites?itemType=restaurant&itemId=${targetId}`, {
+          method: 'DELETE',
+        });
+      }
+    } catch {
+      setIsFavorite(!newFavState);
+    }
+  };
 
   const cuisinesList: string[] = Array.isArray(restaurant.cuisine)
     ? restaurant.cuisine
@@ -56,15 +101,23 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
             <span>Restaurant</span>
           </div>
 
-          {restaurant.rating && (
-            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md text-amber-700 text-xs font-bold flex items-center gap-1 shadow-xs">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>{restaurant.rating.toFixed(1)}</span>
-              {restaurant.ratingCount && (
-                <span className="text-gray-400 font-normal">({restaurant.ratingCount})</span>
-              )}
-            </div>
-          )}
+          <div className="absolute top-3 right-3 flex items-center gap-2">
+            {/* Favorite Button */}
+            <button
+              onClick={toggleFavorite}
+              aria-label={`Favorite ${restaurant.name}`}
+              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-gray-700 hover:text-red-500 hover:scale-110 transition-all shadow-xs"
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
+            </button>
+
+            {restaurant.rating && (
+              <div className="px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md text-amber-700 text-xs font-bold flex items-center gap-1 shadow-xs">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span>{restaurant.rating.toFixed(1)}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Content */}
